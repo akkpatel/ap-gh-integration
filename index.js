@@ -1,6 +1,7 @@
-const { Probot, ProbotOctokit } = require('probot');
+const { Probot, ProbotOctokit, getRouter } = require('probot');
 
-const installations = {};  // In-memory store for installations
+// In-memory store for installations
+const installations = {};
 
 // Create a new Probot application
 const app = new Probot({
@@ -12,23 +13,11 @@ const app = new Probot({
   }),
 });
 
-// Handle the installation event
-app.on('installation.created', async (context) => {
-  console.log('we are in installion created');
-  // When the GitHub App is installed, generate an installation token
-  const { token } = await context.github.apps.createInstallationAccessToken({
-    installation_id: context.payload.installation.id,
-  });
+// Get the router
+const router = getRouter('/');
 
-  console.log('check the token: ', token);
-
-  // Save the token and installation ID to the in-memory store
-  installations[context.payload.installation.id] = token;
-});
-
-// Fetch repositories for a user
-app.route('/').get('/api/repos/:userId', async (req, res) => {
-  console.log('we are getting the use repos: ');
+// Define your route
+router.get('/api/repos/:userId', async (req, res) => {
   const { userId } = req.params;
 
   try {
@@ -56,6 +45,20 @@ app.route('/').get('/api/repos/:userId', async (req, res) => {
   } catch (error) {
     res.status(500).send('Error fetching repositories');
   }
+});
+
+// Load the router into the Probot application
+app.router.use(router);
+
+// Handle the installation event
+app.on('installation.created', async (context) => {
+  // When the GitHub App is installed, generate an installation token
+  const { token } = await context.github.apps.createInstallationAccessToken({
+    installation_id: context.payload.installation.id,
+  });
+
+  // Save the token and installation ID to the in-memory store
+  installations[context.payload.installation.id] = token;
 });
 
 // Start the server
